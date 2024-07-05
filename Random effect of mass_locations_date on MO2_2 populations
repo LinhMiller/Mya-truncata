@@ -1,0 +1,100 @@
+rm(list=ls())
+library(wql)
+library(ggplot2)
+library(readxl)
+library(tibble)
+library(respR)
+library(lubridate)
+library(tidyverse)
+library(dplyr)
+library(skimr)
+library(car)
+
+library(rstatix)
+library(lme4)
+library(emmeans)
+######### Analyze mass specific rate
+dt <-read_excel("./Data/Rimouski_Iqaluit_convertedrate_raw_newBG.xlsx")
+dt <- dt %>% mutate( Treatment=Trt)
+dt %>% filter(!is.na(Delta)) %>% group_by(Trt, Site) %>% tally()
+m <- lmer(Delta ~ (mass_whole_g|Site/Date_order)+ factor(Trt), data=dt)
+summary(m)
+
+performance::check_model(m) #check model fit #looked OK
+
+pairs(emmeans(m, ~ Trt, adjust = "Tukey"))
+df_partial_pooling <- coef(m)[["Site"]] %>% 
+  rownames_to_column("Site")
+
+str(rand_site <- coef(m)$Site)
+lattice::qqmath(ranef(m, condVar = TRUE)) ##slope is mass_whole_g
+## try different packages tocompare values
+#randomSims <- merTools::REsim(m, n.sims = 5000)
+#merTools::plotREsim(merTools::REsim(m, n.sims = 500))
+###
+remotes::install_github('m-clark/mixedup')
+mix <-mixedup::extract_random_effects(m, digits=30) ###
+  
+coef_df <- as.data.frame(coef(m)$Site)
+p<- ggplot(data = dt, aes(x = mass_whole_g, y = Delta, color = Site)) +
+  geom_point() +
+  scale_color_manual(values = c("North" = "black", "South" = "grey"))+
+  geom_abline(intercept = (-2.278378e+00 - (1.239557e+00
+*1.96)), slope = (-1.036301e-02 - ( 5.638018e-03  * 1.96)), color = "black", linetype = 2) + 
+  geom_abline(intercept = (-2.278378e+00 + (1.239557e+00*1.96)), slope = (-1.036301e-02 + (5.638018e-03 * 1.96)), color = "black", linetype = 2) + 
+  geom_abline(intercept = -2.278378e+00, slope = -1.036301e-02, color = "black") + 
+  
+  geom_abline(intercept = 2.118089e+00, slope =  9.633943e-03  , color = "grey") +
+  geom_abline(intercept = (2.118089e+00- (1.456198e+00*1.96)), slope = ( 9.633943e-03- (6.623389e-03   * 1.96)), color = "grey", linetype = 2) + 
+  geom_abline(intercept = (2.118089e+00 + (1.456198e+00*1.96)), slope = ( 9.633943e-03 + (6.623389e-03 * 1.96)), color = "grey", linetype = 2) +
+  theme_classic() +
+  labs(x= "Body mass")+
+  theme(text = element_text(size=14))
+p
+ggsave(plot=p, file="./output/Result_graph/Random_effect_newBG.jpeg")
+
+
+###need to finish this with the SOUTH")
+##RESULTS: NO EFFECT OF MASS NOR SITE NOR DATES ON MO2
+
+##### I label the day of the trial as day 1 to day n (when the ended), then saperature each site
+dt <-read_excel("./Data/Rimouski_Iqaluit_convertedrate_raw_newBG_newDATE.xlsx")
+N <- dt[c(1:48),]
+S <- dt[c(49:95),]
+
+N <- N %>% mutate( Treatment=Trt)
+mN <- lmer(Delta ~ (1|Date_order)+ factor(Trt), data=N)
+summary(mN)
+
+performance::check_model(mN) #check model fit #looked OK
+
+pairs(emmeans(mN, ~ Trt, adjust = "Tukey"))
+df_partial_pooling <- coef(mN)[["Date_order"]] %>% 
+  rownames_to_column("Date_order")
+
+str(rand_site <- coef(mN)$Date_order)
+lattice::qqmath(ranef(mN, condVar = TRUE)) ###there was not an effect of DATE_ORDER on MO2 between treatments
+
+S <- S %>% mutate( Treatment=Trt)
+mS<- lmer(Delta ~ (1|Date_order)+ factor(Trt), data=S)
+summary(mS)
+
+performance::check_model(mS) #check model fit #looked OK
+
+pairs(emmeans(mS, ~ Trt, adjust = "Tukey"))
+df_partial_pooling <- coef(mS)[["Date_order"]] %>% 
+  rownames_to_column("Date_order")
+
+str(rand_site <- coef(mS)$Date_order)
+lattice::qqmath(ranef(mS, condVar = TRUE)) ###there was not an effect of DATE_ORDER on MO2 between treatments
+
+###
+dt <- dt %>% group_by(Site)
+summarize(dt,
+          mean_mass = mean(mass_whole_g, na.rm = TRUE),
+          sd_mass = sd(mass_whole_g, na.rm = TRUE),
+          n = n(),
+          se_mass = sd_mass / sqrt(n), # Calculate Standard Error
+          ci_mass = 1.96 * se_mass, # CI margin of error
+          ci_low_mass = mean_mass - ci_mass, # The lower range
+          ci_high_mass = mean_mass + ci_mass)
