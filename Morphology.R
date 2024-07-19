@@ -132,7 +132,6 @@ WeWholehANOVA <- aov(Weight_whole_g~ Site, data = Data)
 WeWholehANOVA
 summary(WeWholehANOVA)
 TukeyHSD(WeWholehANOVA)
-install.packages("rmarkdown")
 
-rmarkdown::render("Morphology.R")
-rmarkdown::render("Morphology.R", "pdf_document")
+
+
