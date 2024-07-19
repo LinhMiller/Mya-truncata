@@ -1,1 +1,1 @@
-The truncate softshell clams,_ Mya truncata_
+The truncate softshell clams, _Mya truncata_
